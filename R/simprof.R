@@ -1,16 +1,18 @@
-#setwd("/Users/douglas/Documents/School/2010 Spring/Independent Study/SIMPROF in R")
-
 ### This function is going to act as a wrapper for the meat of the math
 ### Primarily to take care of things that happen only once like hclust()
 simprof <- function(data, num.expected=1000, num.simulated=999, 
-					method.cluster="average", method.distance="euclidean", method.transform="identity",
-					alpha=0.05, sample.orientation="row", const=0, silent=TRUE, increment=100){
+					          method.cluster="average", method.distance="euclidean", 
+                    method.transform="identity", alpha=0.05, 
+                    sample.orientation="row", const=0, 
+                    silent=TRUE, increment=100, 
+                    undef.zero=TRUE, warn.braycurtis=TRUE){
 						
 	# the basic way the data is passed is this:
 	# simprof -> simprof.body -> diveDeep (splits into 'left' and 'right' subtrees -> simprof.body (same as before)
 	# if you change anything (to pass it down the line), make sure you change the arguments of each of the above
+  # TODO: pass arguments with ... instead of explicitly.
 	
-	if (!is.matrix(data))
+	if (!is.matrix(data)) # TODO: this could probably be re-worked to not be matrix-dependent
 		data <- as.matrix(data) ### make it consistent handling of the data
 
 	rawdata<-data # the user doesn't need to see "rawdata", but changing a lot of code isn't desirable right now
@@ -21,13 +23,32 @@ simprof <- function(data, num.expected=1000, num.simulated=999,
 	if (is.function(method.distance)) # allow arbitrary distance function choice
 		rawdata.dist <- method.distance(rawdata)
 	else if (method.distance == "braycurtis"){
-		rawdata.dist <- braycurtis(rawdata, const)
+		if (warn.braycurtis){
+      warning("This version of the Bray-Curtis index does not use standardization.", call.=FALSE)
+      warning("To use the standardized version, use \"actual-braycurtis\".", call.=FALSE)
+      warning("See the help documentation for more information.", call.=FALSE)
+		  }
+    rawdata.dist <- braycurtis(rawdata, const, undef.zero)
 		# the next bit takes care of putting row names back onto the rawdata.dist
-		if (!is.null(rownames(rawdata)))
+		if (!is.null(rownames(rawdata))){
 			attr(rawdata.dist, "Labels") <- rownames(rawdata)
+		  }
 		}
-	else
+	else if (method.distance == "czekanowski"){
+    rawdata.dist <- czekanowski(rawdata, const, undef.zero) # this is IDENTICAL to the braycurtis() function
+    if (!is.null(rownames(rawdata))){
+      attr(rawdata.dist, "Labels") <- rownames(rawdata)
+    }
+	}
+	else if (method.distance == "actual-braycurtis"){
+    rawdata.dist <- braycurtis(preBCstandardization(rawdata),const, undef.zero)
+    if (!is.null(rownames(rawdata))){
+      attr(rawdata.dist, "Labels") <- rownames(rawdata)
+    }
+	}
+	else {
 		rawdata.dist <- dist(rawdata, method=method.distance)
+	}
 	### transforming the data
 	if (!method.transform == "identity")
 		rawdata <- trans(rawdata, method.transform)
@@ -39,7 +60,8 @@ simprof <- function(data, num.expected=1000, num.simulated=999,
 	simprof.results <- simprof.body(rawdata=rawdata, num.expected=num.expected, num.simulated=num.simulated, 
 			method.cluster=method.cluster, method.distance=method.distance, 
 			originaldata=rawdata, alpha=alpha, clust.order=hclust.results$merge, 
-			startrow=nrow(hclust.results$merge), pMatrix=pMatrix, const=const, silent=silent, increment=increment)
+			startrow=nrow(hclust.results$merge), pMatrix=pMatrix, 
+      const=const, silent=silent, increment=increment, undef.zero)
 	
 	results <- list()
 	results[["numgroups"]] <- length(simprof.results$samples) # number of significant groups
@@ -60,7 +82,7 @@ simprof <- function(data, num.expected=1000, num.simulated=999,
 simprof.body <- function(rawdata, num.expected=1000, num.simulated=999, 
 					method.cluster="average", method.distance="euclidean", originaldata=NA,
 					alpha=0.05, clust.order=NA, startrow, pMatrix, currentsamples=NA, const=const, 
-					silent, increment){
+					silent, increment, undef.zero){
 
 	### The below description is incorrect. Ignore and change.
 	### Find all of the basic data we'll need to form a test statistic
@@ -74,24 +96,30 @@ simprof.body <- function(rawdata, num.expected=1000, num.simulated=999,
 	### Finally, if the p-value is less than alpha (0.05), run simprof on the left and right sub-clusters.
 	
 	### Real data simprof
- 	rawdata.simprof <- list(genSimilarityProfile(rawdata, method.distance, const))
+ 	rawdata.simprof <- list(genSimilarityProfile(rawdata, method.distance, const, undef.zero))
 	if (!dim(rawdata.simprof[[1]])[2]==1) # order screws up the list if it is only a column (and if it is only a single column, there is no need to order)
 		rawdata.simprof[[1]] <- rawdata.simprof[[1]][,order(rawdata.simprof[[1]][2,])]
 	### maybe this is the slowdown point? 
 	
 	### Expected Profile
-	expectedprofile.simprof <- genProfile(rawdata, originaldata, num.expected, method.distance, const, silent=silent, increment=increment, type="Expected")
+	expectedprofile.simprof <- genProfile(rawdata, originaldata, num.expected, 
+                                        method.distance, const, silent=silent, 
+                                        increment=increment, type="Expected",
+                                        undef.zero)
 	expectedprofile.average <- computeAverage(expectedprofile.simprof, num.expected)
 
 	### Test Statistic
 	teststatistic <- computeTestStatistic(rawdata.simprof[[1]], expectedprofile.average)
-	
+   
 	### Simulated Profile
-	simulatedprofile.simprof <- genProfile(rawdata, originaldata, num.simulated, method.distance, const, silent=silent, increment=increment, type="Simulated")
+	simulatedprofile.simprof <- genProfile(rawdata, originaldata, num.simulated, 
+                                         method.distance, const, silent=silent, 
+                                         increment=increment, type="Simulated",
+                                         undef.zero)
 	
 	### Comparison
 	pval <- tsComparison(simulatedprofile.simprof, expectedprofile.average, num.simulated, teststatistic)
-	
+   
 	findings <- c();
 	findings[["pval"]] <- pTracker(pMatrix, startrow, pval)
 	

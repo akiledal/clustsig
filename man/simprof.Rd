@@ -9,7 +9,8 @@ simprof(data, num.expected=1000, num.simulated=999,
 method.cluster="average", method.distance="euclidean", 
 method.transform="identity", alpha=0.05,
 sample.orientation="row", const=0,
-silent=TRUE, increment=100)
+silent=TRUE, increment=100,
+undef.zero=TRUE, warn.braycurtis=TRUE)
 }
 \arguments{
   \item{data}{Input data in a matrix.}
@@ -24,9 +25,11 @@ silent=TRUE, increment=100)
     \code{"complete"}, \code{"average"}, \code{"mcquitty"}, \code{"median"} or \code{"centroid".}}
   \item{method.distance}{This value should be either an option to pass
     to the function \code{\link{dist}} (standard values are \code{"euclidean", "maximum",
-    "manhattan", "canberra", "binary" or "minkowski"}), or \code{"braycurtis"} for
-    Bray-Curtis Disimilarity. This value can also be any function which returns
-    a \code{"dist"} object.}
+    "manhattan", "canberra", "binary" or "minkowski"}), \code{"braycurtis"} or \code{"czekanowski"} for
+    Czekanowski Dissimilarity (referred to as Bray-Curtis Disimilarity in some fields, particularly 
+    marine biology), or \code{"actual-braycurtis"} for the true Bray-Curtis Dissimilarity where the 
+    data are standardized before the dissimilarity is calculated. This value can also be any function 
+    which returns a \code{"dist"} object.}
   \item{method.transform}{An option to specify a transform, if any, to
     be applied to the data. Possible values are \code{"identity"} (no
     transformation), \code{"squareroot"}, \code{"log"}, \code{"PA"}
@@ -57,6 +60,15 @@ silent=TRUE, increment=100)
   \item{increment}{An integer value indicating, if \code{silent=FALSE},
     one which iterations a message should be printed. (If the iteration
     number modulus \code{increment} equals 0, that number will be printed.)}
+  \item{undef.zero}{A logical value indicating whether undefined values arising from a
+    denominator equal to 0 in the Bray-Curtis/Czekanowski Dissimilarity Indices should result
+    in \code{NA} or 0. This defaults to \code{TRUE} so that NA values are replaced by 0. This
+    default is to retain backward compatibility with the previous version of the package but
+    may be changed in a future release.}
+  \item{warn.braycurtis}{A logical value indicating whether a warning should be printed
+    when using the \code{"braycurtis"} option because of the naming confusion in some fields
+    with the Czekanowski Dissimilarity Index. This defaults to \code{TRUE} but may change in
+    future releases. For more information, see Yoshioka (2008) listed in the references.}
 }
 \value{A list object is produced with the following components:
   \item{numgroups}{The number of groups which are found to be
@@ -70,10 +82,12 @@ silent=TRUE, increment=100)
   \item{hclust}{An object of class hclust which is just the results of
     running hclust on the original data.}
 }
-\references{Clarke, K.R., Somerfield, P.J., and Gorley, R.N,
+\references{Clarke, K.R., Somerfield, P.J., and Gorley, R.N.,
   2008. Testing of null hypotheses in exploratory community analyses
   similarity profiles and biota-environment
-  linkage. \emph{J. Exp. Mar. Biol. Ecol. 366}, 56-69.
+  linkage. \emph{J. Exp. Mar. Biol. Ecol.} \bold{366}, 56--69.
+  
+  Yoshioka, P.M., 2008. Misidentification of the Bray-Curtis similarity index. \emph{Mar. Ecol. Prog. Ser.} \bold{368}, 309--310.
   }
 \author{Douglas Whitaker and Mary Christman}
 \seealso{
