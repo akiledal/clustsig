@@ -61,7 +61,7 @@ simprof <- function(data, num.expected=1000, num.simulated=999,
 			method.cluster=method.cluster, method.distance=method.distance, 
 			originaldata=rawdata, alpha=alpha, clust.order=hclust.results$merge, 
 			startrow=nrow(hclust.results$merge), pMatrix=pMatrix, 
-      const=const, silent=silent, increment=increment, undef.zero)
+      const=const, silent=silent, increment=increment, undef.zero=undef.zero)
 	
 	results <- list()
 	results[["numgroups"]] <- length(simprof.results$samples) # number of significant groups
